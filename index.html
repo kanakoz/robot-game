@@ -2,964 +2,511 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Neon Quad Othello - Special Drop</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>テント飲食出店レイアウト3D（初期値反映版）</title>
     <style>
-        /* --- カスタム設定 & アニメーション --- */
-        :root {
-            --p1-color: #FF0055; /* Neon Red */
-            --p1-glow: 0 0 15px #FF0055, 0 0 30px #FF0055;
-            --p2-color: #00E5FF; /* Neon Cyan */
-            --p2-glow: 0 0 15px #00E5FF, 0 0 30px #00E5FF;
-            --p3-color: #39FF14; /* Neon Green */
-            --p3-glow: 0 0 15px #39FF14, 0 0 30px #39FF14;
-            --p4-color: #FFD700; /* Neon Gold */
-            --p4-glow: 0 0 15px #FFD700, 0 0 30px #FFD700;
-            --bg-dark: #050510;
-            --grid-line: rgba(255, 255, 255, 0.15);
-        }
-
-        body {
-            font-family: 'Orbitron', sans-serif;
-            background-color: var(--bg-dark);
-            color: white;
-            overflow: hidden;
-            touch-action: manipulation; /* ダブルタップズーム防止 */
-        }
-
-        /* 背景の動的グリッド */
-        .cyber-grid {
+        body { margin: 0; overflow: hidden; background-color: #f0f0f0; font-family: sans-serif; touch-action: none; }
+        #info {
             position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-image: 
-                linear-gradient(var(--grid-line) 1px, transparent 1px),
-                linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-            background-size: 40px 40px;
-            perspective: 500px;
-            transform: scale(1.2);
-            z-index: -1;
-            opacity: 0.3;
-            animation: gridMove 20s linear infinite;
-        }
-
-        @keyframes gridMove {
-            0% { transform: perspective(500px) rotateX(20deg) translateY(0); }
-            100% { transform: perspective(500px) rotateX(20deg) translateY(40px); }
-        }
-
-        /* 盤面スタイル */
-        .board-container {
-            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(255,255,255,0.1);
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 12px;
-            padding: 4px;
-            background: rgba(20, 20, 30, 0.8);
-        }
-
-        .cell {
-            position: relative;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .cell:active {
-            background: rgba(255,255,255,0.1);
-        }
-
-        /* 駒のスタイル */
-        .piece {
-            width: 80%;
-            height: 80%;
-            border-radius: 50%;
-            position: absolute;
-            top: 10%;
-            left: 10%;
-            transform: scale(0);
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: inset -2px -2px 6px rgba(0,0,0,0.5), inset 2px 2px 6px rgba(255,255,255,0.4);
-        }
-
-        .piece.show { transform: scale(1); }
-
-        /* 各プレイヤーの色定義 */
-        .p1 { background: var(--p1-color); box-shadow: var(--p1-glow); }
-        .p2 { background: var(--p2-color); box-shadow: var(--p2-glow); }
-        .p3 { background: var(--p3-color); box-shadow: var(--p3-glow); }
-        .p4 { background: var(--p4-color); box-shadow: var(--p4-glow); }
-
-        /* ヒント（置ける場所） */
-        .hint::after {
-            content: '';
-            display: block;
-            width: 20%;
-            height: 20%;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            position: absolute;
-            top: 40%;
-            left: 40%;
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(0.8); opacity: 0.3; }
-            50% { transform: scale(1.2); opacity: 0.6; }
-            100% { transform: scale(0.8); opacity: 0.3; }
-        }
-
-        /* 反転アニメーション */
-        @keyframes flipEffect {
-            0% { transform: scale(1) rotateY(0); }
-            50% { transform: scale(0.1) rotateY(90deg); }
-            100% { transform: scale(1) rotateY(0); }
-        }
-        .flipping {
-            animation: flipEffect 0.4s ease-in-out forwards;
-        }
-
-        /* アクティブプレイヤーの表示 */
-        .player-card {
-            transition: all 0.3s;
-            border: 1px solid transparent;
-            opacity: 0.5;
-            transform: scale(0.9);
-            position: relative;
-        }
-        .player-card.active {
-            opacity: 1;
-            transform: scale(1.05);
-            border-color: white;
-            background: rgba(255,255,255,0.1);
-            box-shadow: 0 0 20px rgba(255,255,255,0.2);
-        }
-        .player-card .role-badge {
-            position: absolute;
-            top: -10px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 0.6rem;
-            padding: 2px 6px;
-            border-radius: 10px;
-            background: #333;
-            border: 1px solid #666;
-            white-space: nowrap;
-            z-index: 5;
-        }
-        .player-card.p1-active { border-color: var(--p1-color); box-shadow: 0 0 15px var(--p1-color); }
-        .player-card.p2-active { border-color: var(--p2-color); box-shadow: 0 0 15px var(--p2-color); }
-        .player-card.p3-active { border-color: var(--p3-color); box-shadow: 0 0 15px var(--p3-color); }
-        .player-card.p4-active { border-color: var(--p4-color); box-shadow: 0 0 15px var(--p4-color); }
-
-        /* 持ち駒インジケーター */
-        .special-piece-indicator {
-            display: flex;
-            gap: 4px;
-            margin-top: 4px;
-        }
-        .special-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.3);
-            box-shadow: 0 0 2px rgba(255,255,255,0.1);
-        }
-        .special-dot.active {
-            background: #fff;
-            box-shadow: 0 0 5px #fff, 0 0 10px currentColor;
-        }
-
-        /* スペシャルモード時の盤面強調 */
-        .special-mode .cell:not(:has(.piece)) {
-            box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.2);
-            cursor: pointer;
-        }
-        .special-mode .cell:not(:has(.piece)):hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        /* スペシャルボタン */
-        #special-btn {
-            transition: all 0.3s;
-            opacity: 0.5;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             pointer-events: none;
+            z-index: 100;
+            max-width: 80%;
         }
-        #special-btn.available {
-            opacity: 1;
-            pointer-events: auto;
-            box-shadow: 0 0 15px rgba(255, 0, 255, 0.4);
-        }
-        #special-btn.active {
-            background: #fff;
-            color: #000;
-            box-shadow: 0 0 20px #fff;
-            transform: scale(1.1);
-        }
-
-        /* 置いたときのエフェクト */
-        .shockwave {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 100%; height: 100%;
-            border-radius: 50%;
-            border: 2px solid white;
-            opacity: 0;
-            pointer-events: none;
-        }
-        .shockwave.animate {
-            animation: shockwaveAnim 0.5s ease-out;
-        }
-        @keyframes shockwaveAnim {
-            0% { width: 0; height: 0; opacity: 1; border-width: 5px; }
-            100% { width: 200%; height: 200%; opacity: 0; border-width: 0; }
-        }
-
-        /* モーダル */
-        .glass-modal {
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(10px);
-        }
-        .neon-text {
-            text-shadow: 0 0 10px currentColor;
+        h1 { font-size: 16px; margin: 0 0 5px 0; }
+        p { font-size: 12px; margin: 0; }
+        #liff-status {
+            font-size: 10px;
+            color: #666;
+            margin-top: 5px;
         }
     </style>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
+    <!-- LIFF SDK -->
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
-<body class="h-screen w-full flex flex-col select-none">
-
-    <!-- 背景エフェクト -->
-    <div class="cyber-grid"></div>
-    <canvas id="bgCanvas" class="absolute inset-0 w-full h-full z-[-1]"></canvas>
-
-    <!-- ヘッダー -->
-    <header class="flex-none p-4 flex justify-between items-center z-10 bg-black/30 backdrop-blur-sm border-b border-white/10">
-        <div class="flex flex-col">
-            <h1 class="text-2xl font-bold italic bg-clip-text text-transparent bg-gradient-to-r from-pink-500 via-cyan-500 to-yellow-500 neon-text" style="text-shadow: none; filter: drop-shadow(0 0 5px rgba(255,255,255,0.5));">
-                QUAD REVERSI
-            </h1>
-            <span class="text-xs text-gray-400 tracking-wider">HUMAN (P1&P3) vs CPU (P2&P4)</span>
-        </div>
-        <button onclick="resetGame()" class="px-4 py-1 bg-white/10 border border-white/30 rounded hover:bg-white/20 transition text-sm font-bold text-cyan-300">
-            <i class="fas fa-redo mr-2"></i>RESET
-        </button>
-    </header>
-
-    <!-- スコアボード -->
-    <div class="flex-none flex justify-around items-center p-2 z-10">
-        <div id="score-p1" class="player-card p-2 rounded flex flex-col items-center w-1/5">
-            <span class="role-badge text-pink-400">YOU</span>
-            <div class="w-4 h-4 rounded-full bg-[#FF0055] shadow-[0_0_10px_#FF0055] mb-1"></div>
-            <span class="text-xs text-gray-400">P1</span>
-            <span class="text-xl font-bold count">2</span>
-            <div class="special-piece-indicator text-[#FF0055]"></div>
-        </div>
-        <div id="score-p2" class="player-card p-2 rounded flex flex-col items-center w-1/5">
-            <span class="role-badge text-cyan-400">CPU</span>
-            <div class="w-4 h-4 rounded-full bg-[#00E5FF] shadow-[0_0_10px_#00E5FF] mb-1"></div>
-            <span class="text-xs text-gray-400">P2</span>
-            <span class="text-xl font-bold count">2</span>
-            <div class="special-piece-indicator text-[#00E5FF]"></div>
-        </div>
-        <div id="score-p3" class="player-card p-2 rounded flex flex-col items-center w-1/5">
-            <span class="role-badge text-green-400">YOU</span>
-            <div class="w-4 h-4 rounded-full bg-[#39FF14] shadow-[0_0_10px_#39FF14] mb-1"></div>
-            <span class="text-xs text-gray-400">P3</span>
-            <span class="text-xl font-bold count">2</span>
-            <div class="special-piece-indicator text-[#39FF14]"></div>
-        </div>
-        <div id="score-p4" class="player-card p-2 rounded flex flex-col items-center w-1/5">
-            <span class="role-badge text-yellow-400">CPU</span>
-            <div class="w-4 h-4 rounded-full bg-[#FFD700] shadow-[0_0_10px_#FFD700] mb-1"></div>
-            <span class="text-xs text-gray-400">P4</span>
-            <span class="text-xl font-bold count">2</span>
-            <div class="special-piece-indicator text-[#FFD700]"></div>
-        </div>
-    </div>
-
-    <!-- ゲームボード -->
-    <main class="flex-grow flex flex-col items-center justify-center p-4 z-10 relative">
-        <div class="w-full max-w-[400px] aspect-square board-container grid grid-cols-8 gap-1 mb-4 transition-all duration-300" id="board">
-            <!-- セルはJSで生成 -->
-        </div>
-
-        <!-- スペシャルボタンエリア -->
-        <div class="h-12 flex items-center justify-center w-full">
-            <button id="special-btn" onclick="toggleSpecialMode()" class="px-6 py-2 rounded-full border border-white/40 bg-black/40 text-white font-bold tracking-wider flex items-center gap-2 backdrop-blur-md">
-                <i class="fas fa-star"></i> SPECIAL DROP <span id="special-count-display">(2)</span>
-            </button>
-        </div>
-        
-        <!-- メッセージ表示エリア（パスなど） -->
-        <div id="message-toast" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-0 transition-opacity duration-300 z-50">
-            <div class="bg-black/80 text-white px-6 py-3 rounded border border-white/20 text-xl font-bold tracking-widest backdrop-blur-md neon-text text-center">
-                PASS
-            </div>
-        </div>
-    </main>
-
-    <!-- フッター（現在のターン表示） -->
-    <footer class="flex-none p-4 text-center z-10 bg-black/30 backdrop-blur-sm">
-        <p class="text-sm text-gray-400 mb-1">CURRENT TURN</p>
-        <div id="turn-indicator" class="text-2xl font-bold tracking-widest neon-text transition-colors duration-300">
-            PLAYER 1
-        </div>
-    </footer>
-
-    <!-- 結果モーダル -->
-    <div id="result-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center glass-modal animate-fade-in">
-        <div class="bg-gray-900/90 border border-white/20 p-8 rounded-2xl max-w-sm w-full text-center shadow-2xl transform transition-all scale-100 relative overflow-hidden">
-            <!-- 勝者の背景光 -->
-            <div id="winner-glow" class="absolute inset-0 opacity-30 blur-3xl bg-white z-[-1]"></div>
-
-            <h2 class="text-4xl font-black mb-2 neon-text">GAME SET</h2>
-            <div class="my-6">
-                <p class="text-gray-400 text-sm uppercase tracking-widest mb-2">Winner</p>
-                <div id="winner-name" class="text-5xl font-bold mb-4 text-white drop-shadow-lg">PLAYER 1</div>
-                <div id="winner-score" class="text-3xl font-mono text-white">32 pts</div>
-            </div>
-            <button onclick="resetGame()" class="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 font-bold text-white tracking-wider shadow-lg hover:shadow-blue-500/50 transition transform hover:scale-105">
-                PLAY AGAIN
-            </button>
-        </div>
+<body>
+    <div id="info">
+        <h1>出店レイアウト 3Dシミュレーター</h1>
+        <p>オブジェクトをドラッグして移動できます。</p>
+        <p>左ドラッグ: 回転/移動 | 右ドラッグ: 移動</p>
+        <div id="liff-status">LIFF初期化待機中...</div>
     </div>
 
     <script>
-        // --- ゲーム設定 ---
-        const BOARD_SIZE = 8;
-        const PLAYERS = [
-            { id: 1, name: "PLAYER 1", colorVar: "--p1-color", class: "p1", type: "human" },
-            { id: 2, name: "PLAYER 2", colorVar: "--p2-color", class: "p2", type: "cpu" },
-            { id: 3, name: "PLAYER 3", colorVar: "--p3-color", class: "p3", type: "human" },
-            { id: 4, name: "PLAYER 4", colorVar: "--p4-color", class: "p4", type: "cpu" }
-        ];
-        
-        // 状態管理
-        let board = [];
-        let currentPlayerIndex = 0; // 0-3
-        let passCount = 0;
-        let isAnimating = false;
+        // --- LIFF設定 ---
+        const LIFF_ID = ""; 
 
-        // 新機能: 持ち駒（スペシャル）管理
-        let specialCounts = [2, 2, 2, 2]; // 各プレイヤーの残り回数
-        let isSpecialMode = false;
+        // --- 設定変数 (cm単位) ---
+        const SPACE_WIDTH = 360;
+        const SPACE_DEPTH = 360;
+        const SPACE_HEIGHT = 250;
+        const PERSON_HEIGHT = 170;
+        const PERSON_RADIUS = 25;
+        const WORK_RADIUS = 60;
 
-        // DOM要素
-        const boardEl = document.getElementById('board');
-        const turnTextEl = document.getElementById('turn-indicator');
-        const messageToast = document.getElementById('message-toast');
-        const resultModal = document.getElementById('result-modal');
-        const specialBtn = document.getElementById('special-btn');
-        const specialCountDisplay = document.getElementById('special-count-display');
+        // --- 初期データ (Config: ユーザー提供データを反映) ---
+        const furnitureData = {
+          luggage: { label: "荷物", w: 49.23, d: 46.62, h: 100, x: -152.82, z: -155.14, color: 8421504 },
+          tableLeftBack: { label: "テーブルA", w: 60, d: 120, h: 70, x: -150, z: -120, color: 3355443 },
+          tableLeftFront: { label: "テーブルB", w: 60, d: 120, h: 70, x: -150.02, z: 2.80, color: 3355443 },
+          deskFront: { label: "長机A", w: 180, d: 60, h: 70, x: -8.44, z: 138.93, color: 9127187 },
+          deskRight: { label: "長机B", w: 60, d: 180, h: 70, x: 148.84, z: 57.96, color: 9127187 },
+          deskBack: { label: "長机C", w: 180, d: 60, h: 70, x: 45.58, z: -94.94, color: 9127187 }
+        };
 
-        // 音効用 (ブラウザ制限回避のため簡易的なAudioContext)
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        
-        function playSound(type) {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-
-            const now = audioCtx.currentTime;
-            if (type === 'place') {
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(400, now);
-                osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
-                gain.gain.setValueAtTime(0.2, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                osc.start(now);
-                osc.stop(now + 0.1);
-            } else if (type === 'win') {
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(300, now);
-                osc.frequency.linearRampToValueAtTime(800, now + 0.3);
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.linearRampToValueAtTime(0.01, now + 1.0);
-                osc.start(now);
-                osc.stop(now + 1.0);
-            }
-        }
-
-        // --- 初期化 ---
-        function initGame() {
-            board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(0));
-            
-            // 4人対戦用初期配置 (中央4マス)
-            // 配置: 
-            // P1 P2
-            // P4 P3
-            // のように時計回りに配置
-            board[3][3] = 1;
-            board[3][4] = 2;
-            board[4][4] = 3;
-            board[4][3] = 4;
-
-            currentPlayerIndex = 0;
-            passCount = 0;
-            isAnimating = false;
-            
-            // リセット
-            specialCounts = [2, 2, 2, 2];
-            isSpecialMode = false;
-
-            resultModal.classList.add('hidden');
-
-            renderBoard();
-            updateUI();
-            checkMoves();
-        }
-
-        // --- 盤面描画 ---
-        function renderBoard() {
-            boardEl.innerHTML = '';
-            
-            const currentPlayer = PLAYERS[currentPlayerIndex];
-            
-            // スペシャルモードかどうかで有効手を切り替え
-            // 変更: スペシャルモード時は「隣接マス」のみ許可
-            const validMoves = isSpecialMode 
-                ? getSpecialDropMoves() 
-                : getValidMoves(currentPlayer.id);
-            
-            const showHints = currentPlayer.type === 'human';
-            
-            // 盤面のスタイル切り替え
-            if (isSpecialMode) {
-                boardEl.classList.add('special-mode');
-            } else {
-                boardEl.classList.remove('special-mode');
-            }
-
-            for (let y = 0; y < BOARD_SIZE; y++) {
-                for (let x = 0; x < BOARD_SIZE; x++) {
-                    const cell = document.createElement('div');
-                    cell.className = 'cell w-full h-full bg-white/5 rounded-sm relative overflow-hidden';
-                    cell.dataset.x = x;
-                    cell.dataset.y = y;
-
-                    // グリッドラインのような装飾
-                    cell.style.border = '1px solid rgba(255,255,255,0.05)';
-
-                    const val = board[y][x];
-                    if (val > 0) {
-                        const piece = document.createElement('div');
-                        piece.className = `piece ${PLAYERS[val-1].class} show`;
-                        piece.id = `piece-${x}-${y}`;
-                        cell.appendChild(piece);
-                    } else {
-                        // ヒント表示（人間のみ）
-                        if (showHints) {
-                            const isValid = validMoves.some(m => m.x === x && m.y === y);
-                            if (isValid) {
-                                if (!isSpecialMode) cell.classList.add('hint');
-                                cell.onclick = () => handleMove(x, y);
-                            }
-                        }
-                    }
-                    boardEl.appendChild(cell);
-                }
-            }
-        }
-
-        function getAllEmptyCells() {
-            let moves = [];
-            for (let y = 0; y < BOARD_SIZE; y++) {
-                for (let x = 0; x < BOARD_SIZE; x++) {
-                    if (board[y][x] === 0) moves.push({x, y});
-                }
-            }
-            return moves;
-        }
-
-        // 新規追加: スペシャルドロップ用の有効手（何らかの駒に隣接している空きマス）を取得
-        function getSpecialDropMoves() {
-            let moves = [];
-            for (let y = 0; y < BOARD_SIZE; y++) {
-                for (let x = 0; x < BOARD_SIZE; x++) {
-                    if (board[y][x] !== 0) continue;
-                    
-                    // 周囲8方向に駒があるかチェック
-                    let hasNeighbor = false;
-                    for (let [dx, dy] of DIRECTIONS) {
-                        const nx = x + dx;
-                        const ny = y + dy;
-                        if (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE) {
-                            if (board[ny][nx] !== 0) {
-                                hasNeighbor = true;
-                                break;
-                            }
-                        }
-                    }
-                    
-                    if (hasNeighbor) {
-                        moves.push({x, y});
-                    }
-                }
-            }
-            return moves;
-        }
-
-        // --- ゲームロジック ---
-        const DIRECTIONS = [
-            [-1, -1], [0, -1], [1, -1],
-            [-1, 0],           [1, 0],
-            [-1, 1],  [0, 1],  [1, 1]
+        const peopleData = [
+          { label: "人A", x: -16.45, z: 73.63 },
+          { label: "人B", x: -77.48, z: -30.36 },
+          { label: "人C", x: -72.88, z: -145.78 },
+          { label: "人D", x: 64.38, z: 7.53 },
+          { label: "人E", x: 87.39, z: -151.48 },
+          { label: "人F", x: -133.66, z: 139.11 }
         ];
 
-        function getValidMoves(playerId) {
-            let moves = [];
-            for (let y = 0; y < BOARD_SIZE; y++) {
-                for (let x = 0; x < BOARD_SIZE; x++) {
-                    if (board[y][x] !== 0) continue;
-                    if (canFlip(x, y, playerId).length > 0) {
-                        moves.push({x, y});
+        let scene, camera, renderer, controls;
+        let walls = [];
+        let workZones = [];
+        
+        // オブジェクト管理用
+        const furnitureGroups = {}; 
+        const peopleGroups = [];
+        let draggableObjects = []; 
+
+        // ドラッグ用変数
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let selectedObject = null;
+        let dragPlane = new THREE.Plane();
+        let dragOffset = new THREE.Vector3();
+        let isDragging = false;
+
+        async function init() {
+            await initializeLiff();
+
+            // 1. シーンセットアップ
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xe0e0e0);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
+            camera.position.set(0, 500, 500);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // 2. 照明
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+            dirLight.position.set(100, 300, 100);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.camera.left = -200;
+            dirLight.shadow.camera.right = 200;
+            dirLight.shadow.camera.top = 200;
+            dirLight.shadow.camera.bottom = -200;
+            scene.add(dirLight);
+
+            // 3. 環境構築
+            createEnvironment();
+            
+            // 4. オブジェクト配置
+            placeFurnitureDynamic();
+            placePeopleDynamic();
+
+            // 5. GUI構築
+            setupGUI();
+
+            // 6. イベントリスナー
+            renderer.domElement.addEventListener('pointerdown', onPointerDown);
+            renderer.domElement.addEventListener('pointermove', onPointerMove);
+            renderer.domElement.addEventListener('pointerup', onPointerUp);
+            window.addEventListener('resize', onWindowResize);
+
+            animate();
+        }
+
+        async function initializeLiff() {
+            const statusDiv = document.getElementById('liff-status');
+            if (!LIFF_ID) {
+                statusDiv.innerText = "LIFF ID未設定 (Webモード)";
+                return;
+            }
+            try {
+                await liff.init({ liffId: LIFF_ID });
+                if (liff.isLoggedIn()) {
+                    const profile = await liff.getProfile();
+                    statusDiv.innerText = `LIFF: ${profile.displayName}でログイン中`;
+                } else {
+                    statusDiv.innerText = "LIFF: 未ログイン";
+                }
+            } catch (error) {
+                console.error('LIFF Initialization failed', error);
+                statusDiv.innerText = "LIFF初期化エラー";
+            }
+        }
+
+        function createEnvironment() {
+            const gridHelper = new THREE.GridHelper(SPACE_WIDTH + 200, 20);
+            scene.add(gridHelper);
+
+            const floorGeo = new THREE.PlaneGeometry(SPACE_WIDTH, SPACE_DEPTH);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, side: THREE.DoubleSide });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
+            
+            const wallLeft = new THREE.Mesh(new THREE.PlaneGeometry(SPACE_DEPTH, SPACE_HEIGHT), wallMat);
+            wallLeft.position.set(-SPACE_WIDTH / 2, SPACE_HEIGHT / 2, 0);
+            wallLeft.rotation.y = Math.PI / 2;
+            scene.add(wallLeft);
+            walls.push(wallLeft);
+
+            const wallRight = new THREE.Mesh(new THREE.PlaneGeometry(SPACE_DEPTH, SPACE_HEIGHT), wallMat);
+            wallRight.position.set(SPACE_WIDTH / 2, SPACE_HEIGHT / 2, 0);
+            wallRight.rotation.y = -Math.PI / 2;
+            scene.add(wallRight);
+            walls.push(wallRight);
+
+            const wallBack = new THREE.Mesh(new THREE.PlaneGeometry(SPACE_WIDTH, SPACE_HEIGHT), wallMat);
+            wallBack.position.set(0, SPACE_HEIGHT / 2, -SPACE_DEPTH / 2);
+            scene.add(wallBack);
+            walls.push(wallBack);
+
+            const boxGeo = new THREE.BoxGeometry(SPACE_WIDTH, SPACE_HEIGHT, SPACE_DEPTH);
+            const line = new THREE.LineSegments(new THREE.EdgesGeometry(boxGeo), new THREE.LineBasicMaterial({ color: 0x333333 }));
+            line.position.y = SPACE_HEIGHT / 2;
+            scene.add(line);
+        }
+
+        function createTextTexture(text, textColor, backgroundColor) {
+            const canvas = document.createElement('canvas');
+            const size = 512;
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            if (backgroundColor) {
+                ctx.fillStyle = backgroundColor;
+                ctx.fillRect(0, 0, size, size);
+            } else {
+                ctx.fillStyle = 'rgba(0,0,0,0)';
+                ctx.clearRect(0, 0, size, size);
+            }
+
+            ctx.fillStyle = textColor;
+            ctx.font = 'bold 60px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, size / 2, size / 2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+
+        function placeFurnitureDynamic() {
+            const baseGeo = new THREE.BoxGeometry(1, 1, 1);
+            for (const key in furnitureData) {
+                const data = furnitureData[key];
+                
+                const group = new THREE.Group();
+                
+                const mat = new THREE.MeshStandardMaterial({ color: data.color });
+                const mesh = new THREE.Mesh(baseGeo, mat);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                mesh.userData = { isFurniturePart: true, parentId: key };
+                group.add(mesh);
+                
+                const textTexture = createTextTexture(data.label, '#000000', null);
+                const spriteMaterial = new THREE.SpriteMaterial({ map: textTexture });
+                const sprite = new THREE.Sprite(spriteMaterial);
+                sprite.scale.set(60, 60, 1);
+                group.add(sprite);
+
+                group.userData = { isFurniture: true, id: key, mesh: mesh, sprite: sprite };
+                
+                scene.add(group);
+                furnitureGroups[key] = group;
+                draggableObjects.push(mesh);
+
+                updateFurnitureMesh(key);
+            }
+        }
+
+        function updateFurnitureMesh(key) {
+            const data = furnitureData[key];
+            const group = furnitureGroups[key];
+            if (!group) return;
+
+            const mesh = group.userData.mesh;
+            const sprite = group.userData.sprite;
+
+            group.position.set(data.x, 0, data.z);
+
+            mesh.scale.set(data.w, data.h, data.d);
+            mesh.position.y = data.h / 2;
+
+            sprite.position.y = data.h + 30;
+        }
+
+        function placePeopleDynamic() {
+            peopleData.forEach((pData, index) => {
+                const group = new THREE.Group();
+                group.userData = { isPerson: true, index: index };
+
+                const body = new THREE.Mesh(
+                    new THREE.CylinderGeometry(PERSON_RADIUS, PERSON_RADIUS, PERSON_HEIGHT, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x2196f3 })
+                );
+                body.position.y = PERSON_HEIGHT / 2;
+                body.castShadow = true;
+                group.add(body);
+
+                const head = new THREE.Mesh(
+                    new THREE.SphereGeometry(20, 16, 16),
+                    new THREE.MeshStandardMaterial({ color: 0xffccbc })
+                );
+                head.position.y = PERSON_HEIGHT;
+                group.add(head);
+
+                const textTexture = createTextTexture(pData.label, '#000000', null);
+                const spriteMaterial = new THREE.SpriteMaterial({ map: textTexture });
+                const sprite = new THREE.Sprite(spriteMaterial);
+                sprite.position.set(0, PERSON_HEIGHT + 30, 0);
+                sprite.scale.set(60, 60, 1); 
+                group.add(sprite);
+                
+                const zone = new THREE.Mesh(
+                    new THREE.CircleGeometry(WORK_RADIUS, 32),
+                    new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.15, side: THREE.DoubleSide })
+                );
+                zone.rotation.x = -Math.PI / 2;
+                zone.position.y = 1;
+                group.add(zone);
+                workZones.push(zone);
+
+                scene.add(group);
+                peopleGroups[index] = group;
+                
+                body.userData = { parentGroupIndex: index, isPersonPart: true };
+                head.userData = { parentGroupIndex: index, isPersonPart: true };
+                draggableObjects.push(body);
+                draggableObjects.push(head);
+
+                updatePersonMesh(index);
+            });
+        }
+
+        function updatePersonMesh(index) {
+            const data = peopleData[index];
+            const group = peopleGroups[index];
+            if (!group) return;
+            group.position.set(data.x, 0, data.z);
+        }
+
+        function onPointerDown(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(draggableObjects);
+
+            if (intersects.length > 0) {
+                controls.enabled = false;
+                isDragging = true;
+                const hit = intersects[0];
+                let object = hit.object;
+
+                if (object.userData.isPersonPart) {
+                    const index = object.userData.parentGroupIndex;
+                    selectedObject = peopleGroups[index];
+                } else if (object.userData.isFurniturePart) {
+                    const id = object.userData.parentId;
+                    selectedObject = furnitureGroups[id];
+                }
+
+                if (selectedObject) {
+                    const normal = new THREE.Vector3(0, 1, 0);
+                    dragPlane.setFromNormalAndCoplanarPoint(normal, hit.point);
+                    dragOffset.subVectors(selectedObject.position, hit.point);
+                }
+            }
+        }
+
+        function onPointerMove(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+
+            if (isDragging && selectedObject) {
+                const intersectPoint = new THREE.Vector3();
+                raycaster.ray.intersectPlane(dragPlane, intersectPoint);
+
+                if (intersectPoint) {
+                    const newPos = intersectPoint.add(dragOffset);
+                    selectedObject.position.x = newPos.x;
+                    selectedObject.position.z = newPos.z;
+
+                    if (selectedObject.userData.isPerson) {
+                        const index = selectedObject.userData.index;
+                        peopleData[index].x = newPos.x;
+                        peopleData[index].z = newPos.z;
+                    } else if (selectedObject.userData.isFurniture) {
+                        const id = selectedObject.userData.id;
+                        furnitureData[id].x = newPos.x;
+                        furnitureData[id].z = newPos.z;
                     }
                 }
-            }
-            return moves;
-        }
-
-        function canFlip(x, y, playerId) {
-            let flips = [];
-            for (let [dx, dy] of DIRECTIONS) {
-                let tempFlips = [];
-                let nx = x + dx, ny = y + dy;
-                // 相手の駒が続いているか確認
-                while (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE) {
-                    const cellVal = board[ny][nx];
-                    if (cellVal === 0) break; // 空白
-                    if (cellVal === playerId) {
-                        // 自分の駒で挟めた場合
-                        if (tempFlips.length > 0) {
-                            flips.push(...tempFlips);
-                        }
-                        break;
-                    }
-                    // 相手(自分以外のID)の駒
-                    tempFlips.push({x: nx, y: ny});
-                    nx += dx;
-                    ny += dy;
-                }
-            }
-            return flips;
-        }
-
-        function toggleSpecialMode() {
-            if (isAnimating) return;
-            if (PLAYERS[currentPlayerIndex].type !== 'human') return;
-            if (specialCounts[currentPlayerIndex] <= 0) return;
-
-            isSpecialMode = !isSpecialMode;
-            updateUI();
-            renderBoard();
-        }
-
-        function handleMove(x, y) {
-            if (isAnimating) return;
-
-            const playerId = PLAYERS[currentPlayerIndex].id;
-            
-            // 現在の手がスペシャルモードかどうかを記録
-            const isUsingSpecial = isSpecialMode;
-
-            // スペシャルモード処理（カウント消費チェック）
-            if (isUsingSpecial) {
-                if (specialCounts[currentPlayerIndex] > 0) {
-                    // ここではまだ消費しない（バリデーション後に行う）または
-                    // フラグはまだ落とさない
-                } else {
-                    return; // 残りなし
-                }
+                return;
             }
 
-            // 反転判定（スペシャルで置いた場合も、挟めればひっくり返す）
-            const flips = canFlip(x, y, playerId);
-
-            // バリデーション
-            // スペシャルモードでなく、かつ、ひっくり返せる駒がない場合は無効
-            if (!isUsingSpecial && flips.length === 0) return;
-
-            // --- ここから有効な手として処理 ---
-            
-            playSound('place');
-            isAnimating = true;
-
-            // スペシャルの消費処理とフラグ解除
-            if (isUsingSpecial) {
-                specialCounts[currentPlayerIndex]--;
-                isSpecialMode = false;
-                updateUI(); // 残数の表示更新のため
-            }
-
-            // 駒を置く
-            board[y][x] = playerId;
-            
-            // エフェクト用
-            const cell = document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`);
-            // CPUの場合はrender前でDOMがない可能性があるのでチェック
-            if (cell) {
-                const shockwave = document.createElement('div');
-                shockwave.className = 'shockwave animate';
-                shockwave.style.borderColor = `var(${PLAYERS[currentPlayerIndex].colorVar})`;
-                // スペシャル使用時は少し派手に
-                if (isUsingSpecial) {
-                    shockwave.style.borderWidth = '4px';
-                    shockwave.style.boxShadow = `0 0 20px var(${PLAYERS[currentPlayerIndex].colorVar})`;
-                }
-                cell.appendChild(shockwave);
-                setTimeout(() => shockwave.remove(), 500);
-            }
-
-            // 駒を描画
-            renderBoard(); // 一旦描画して新しい駒を表示
-
-            // 裏返しアニメーション
-            let delay = 0;
-            if (flips.length > 0) {
-                flips.forEach((pos, i) => {
-                    board[pos.y][pos.x] = playerId; // 論理更新
-                    
-                    // 視覚更新（遅延させる）
-                    setTimeout(() => {
-                        const p = document.getElementById(`piece-${pos.x}-${pos.y}`);
-                        if (p) {
-                            p.classList.add('flipping');
-                            setTimeout(() => {
-                                p.className = `piece ${PLAYERS[playerId-1].class} show`;
-                            }, 200); // アニメーションの半分で色変更
-                        }
-                    }, i * 50); // 波及するように遅延
-                    delay = i * 50;
-                });
-            }
-
-            setTimeout(() => {
-                passCount = 0;
-                nextTurn();
-            }, delay + 300);
-        }
-
-        function nextTurn() {
-            // プレイヤーインデックスを進める
-            currentPlayerIndex = (currentPlayerIndex + 1) % 4;
-            checkMoves();
-        }
-
-        function checkMoves() {
-            const currentPlayer = PLAYERS[currentPlayerIndex];
-            const normalMoves = getValidMoves(currentPlayer.id);
-            const hasSpecial = specialCounts[currentPlayerIndex] > 0;
-            
-            // 状態リセット
-            isSpecialMode = false;
-            updateUI();
-            renderBoard(); // ヒント更新
-            isAnimating = false;
-
-            // 有効な手がない判定の修正
-            // 通常手がない かつ (スペシャルを持っていない または スペシャルでも置ける場所がない)
-            const specialDropMoves = getSpecialDropMoves();
-            const canUseSpecial = hasSpecial && specialDropMoves.length > 0;
-            
-            if (normalMoves.length === 0 && !canUseSpecial) {
-                // 置く場所がない場合
-                if (isGameSet()) {
-                    showResult();
-                    return;
-                }
-                
-                // パス処理
-                passCount++;
-                showToast(`PASS: ${currentPlayer.name}`);
-                
-                if (passCount >= 4) {
-                    showResult();
-                } else {
-                    setTimeout(() => {
-                        nextTurn();
-                    }, 1000);
-                }
+            const intersects = raycaster.intersectObjects(draggableObjects);
+            if (intersects.length > 0) {
+                document.body.style.cursor = 'pointer';
             } else {
-                passCount = 0;
-                // CPUのターンなら自動思考
-                if (currentPlayer.type === 'cpu') {
-                    setTimeout(() => executeCpuMove(normalMoves), 800 + Math.random() * 500); // 少し考えるフリ
-                }
+                document.body.style.cursor = 'default';
             }
         }
 
-        // --- CPU ロジック (更新) ---
-        function executeCpuMove(validMoves) {
-            // CPUもスペシャルを使うか判断する
-            const mySpecialCount = specialCounts[currentPlayerIndex];
-            
-            // 変更: スペシャルで置ける場所を取得（隣接マスのみ）
-            const specialMoves = getSpecialDropMoves();
-            
-            let bestMove = null;
-            let maxScore = -9999;
-            let useSpecialForBest = false;
+        function onPointerUp(event) {
+            isDragging = false;
+            selectedObject = null;
+            controls.enabled = true;
+        }
 
-            const corners = [{x:0, y:0}, {x:7, y:0}, {x:0, y:7}, {x:7, y:7}];
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
 
-            // 1. 通常手の評価
-            validMoves.forEach(move => {
-                let score = evaluateMove(move, false);
-                if (score > maxScore) {
-                    maxScore = score;
-                    bestMove = move;
-                    useSpecialForBest = false;
+        // --- 設定出力モーダル ---
+        function showExportModal() {
+            const data = {
+                furniture: furnitureData,
+                people: peopleData
+            };
+            const json = JSON.stringify(data, null, 2);
+            
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:999;display:flex;justify-content:center;align-items:center;';
+            
+            const content = document.createElement('div');
+            content.style.cssText = 'background:white;padding:20px;border-radius:5px;width:80%;max-width:500px;display:flex;flex-direction:column;gap:10px;box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
+            
+            const label = document.createElement('p');
+            label.innerText = '以下のデータを全てコピーして、AIチャットに貼り付けてください。';
+            label.style.margin = '0 0 5px 0';
+            label.style.fontSize = '14px';
+            
+            const textarea = document.createElement('textarea');
+            textarea.value = json;
+            textarea.style.cssText = 'width:100%;height:200px;font-family:monospace;font-size:12px;border:1px solid #ccc;padding:5px;';
+            
+            // コピーボタン
+            const copyBtn = document.createElement('button');
+            copyBtn.innerText = 'クリップボードにコピー';
+            copyBtn.style.padding = '8px';
+            copyBtn.style.cursor = 'pointer';
+            copyBtn.onclick = () => {
+                textarea.select();
+                document.execCommand('copy');
+                copyBtn.innerText = 'コピーしました！';
+                setTimeout(() => copyBtn.innerText = 'クリップボードにコピー', 2000);
+            };
+
+            const closeBtn = document.createElement('button');
+            closeBtn.innerText = '閉じる';
+            closeBtn.style.padding = '8px';
+            closeBtn.style.cursor = 'pointer';
+            closeBtn.onclick = () => document.body.removeChild(overlay);
+            
+            content.appendChild(label);
+            content.appendChild(textarea);
+            content.appendChild(copyBtn);
+            content.appendChild(closeBtn);
+            overlay.appendChild(content);
+            document.body.appendChild(overlay);
+        }
+
+        function setupGUI() {
+            const gui = new dat.GUI({ width: 300 });
+
+            const folderGlobal = gui.addFolder('全体表示設定');
+            const params = {
+                wallOpacity: 0.5,
+                showWorkZone: true,
+                resetCamera: function() {
+                    camera.position.set(0, 500, 500);
+                    camera.lookAt(0, 0, 0);
+                    controls.reset();
+                },
+                exportSettings: function() {
+                    showExportModal();
                 }
+            };
+            folderGlobal.add(params, 'wallOpacity', 0, 1).name('壁透明度').onChange(v => {
+                walls.forEach(w => w.material.opacity = v);
             });
-
-            // 2. スペシャル手の評価（もし持っていれば）
-            if (mySpecialCount > 0 && specialMoves.length > 0) {
-                // 通常手が全くない場合は、スペシャルを使う価値が急上昇
-                const panicMode = (validMoves.length === 0);
-
-                specialMoves.forEach(move => {
-                    // コーナー以外かつパニックモードでないなら、あまり積極的に使わない（コストとして減点）
-                    let isCorner = corners.some(c => c.x === move.x && c.y === move.y);
-                    
-                    // パフォーマンスのため、コーナーまたはパニック時、またはランダムに少しだけ評価
-                    if (isCorner || panicMode || Math.random() < 0.1) {
-                        let score = evaluateMove(move, true);
-                        
-                        // スペシャルコスト（温存したい）
-                        score -= 60; 
-                        
-                        // パニック時（パス回避）はコスト無視（相対的にマシになる）
-                        if (panicMode) score += 50;
-
-                        if (score > maxScore) {
-                            maxScore = score;
-                            bestMove = move;
-                            useSpecialForBest = true;
-                        }
-                    }
-                });
-            }
-
-            if (bestMove) {
-                if (useSpecialForBest) {
-                    isSpecialMode = true;
-                    // handleMove内で消費処理が入る
-                }
-                handleMove(bestMove.x, bestMove.y);
-            } else {
-                // ここに来るのはパスの場合のみ
-                passCount++;
-                showToast(`PASS: CPU`);
-                setTimeout(nextTurn, 1000);
-            }
-        }
-
-        function evaluateMove(move, isSpecial) {
-            let score = 0;
-            const corners = [{x:0, y:0}, {x:7, y:0}, {x:0, y:7}, {x:7, y:7}];
-            
-            // 角
-            if (corners.some(c => c.x === move.x && c.y === move.y)) score += 100;
-
-            // 危険地帯 (X, C)
-            if ((move.x === 1 || move.x === 6) && (move.y === 1 || move.y === 6)) score -= 20; 
-            if ((move.x === 1 || move.x === 6) && (move.y === 0 || move.y === 7)) score -= 10; 
-            if ((move.x === 0 || move.x === 7) && (move.y === 1 || move.y === 6)) score -= 10; 
-
-            // めくれる枚数
-            // スペシャルで置いた場合もめくれるなら評価
-            const flips = canFlip(move.x, move.y, PLAYERS[currentPlayerIndex].id);
-            score += flips.length * 2;
-            
-            // スペシャル特有：めくれない場所に置く（孤立したブロッカー）
-            // 戦略的価値があるが、今回はシンプルに枚数と位置で
-            
-            score += Math.random() * 5; // ゆらぎ
-            return score;
-        }
-
-        function isGameSet() {
-            // 全マス埋まったか、または全員駒がない（稀）
-            let empty = 0;
-            board.forEach(row => row.forEach(c => { if(c===0) empty++; }));
-            return empty === 0;
-        }
-
-        function countScores() {
-            const scores = [0, 0, 0, 0];
-            board.forEach(row => row.forEach(c => {
-                if (c > 0) scores[c-1]++;
-            }));
-            return scores;
-        }
-
-        function updateUI() {
-            const scores = countScores();
-            const p = PLAYERS[currentPlayerIndex];
-            
-            // スコアとインジケーター更新
-            PLAYERS.forEach((pl, i) => {
-                const el = document.getElementById(`score-p${pl.id}`);
-                el.querySelector('.count').innerText = scores[i];
-                
-                if (i === currentPlayerIndex) {
-                    el.classList.add('active', `p${pl.id}-active`);
-                } else {
-                    el.classList.remove('active', 'p1-active', 'p2-active', 'p3-active', 'p4-active');
-                }
-
-                // スペシャルインジケーター
-                const indicatorContainer = el.querySelector('.special-piece-indicator');
-                indicatorContainer.innerHTML = '';
-                for(let k=0; k<2; k++) {
-                    const dot = document.createElement('div');
-                    dot.className = 'special-dot';
-                    if (k < specialCounts[i]) dot.classList.add('active');
-                    indicatorContainer.appendChild(dot);
-                }
+            folderGlobal.add(params, 'showWorkZone').name('作業半径表示').onChange(v => {
+                workZones.forEach(z => z.visible = v);
             });
+            folderGlobal.add(params, 'resetCamera').name('カメラリセット');
+            
+            // 重要: データ出力ボタン
+            folderGlobal.add(params, 'exportSettings').name('★現在の配置を出力');
+            
+            folderGlobal.open();
 
-            // 下部のターン表示
-            turnTextEl.innerText = p.name;
-            turnTextEl.style.color = `var(${p.colorVar})`;
-            turnTextEl.style.textShadow = `0 0 10px var(${p.colorVar})`;
-
-            // スペシャルボタン制御
-            if (p.type === 'human') {
-                specialBtn.classList.add('available');
-                specialCountDisplay.innerText = `(${specialCounts[currentPlayerIndex]})`;
+            const folderFurniture = gui.addFolder('配置・サイズ (什器)');
+            for (const key in furnitureData) {
+                const data = furnitureData[key];
+                const f = folderFurniture.addFolder(data.label);
                 
-                if (specialCounts[currentPlayerIndex] <= 0) {
-                    specialBtn.classList.remove('available');
-                    specialBtn.style.opacity = '0.3';
-                } else {
-                    specialBtn.style.opacity = '1';
-                }
-
-                if (isSpecialMode) {
-                    specialBtn.classList.add('active');
-                    specialBtn.innerHTML = '<i class="fas fa-check"></i> CANCEL DROP';
-                } else {
-                    specialBtn.classList.remove('active');
-                    specialBtn.innerHTML = `<i class="fas fa-star"></i> SPECIAL DROP <span id="special-count-display">(${specialCounts[currentPlayerIndex]})</span>`;
-                }
-            } else {
-                specialBtn.classList.remove('available');
-                specialBtn.style.opacity = '0.3';
+                f.add(data, 'w', 10, 300).name('幅(W)').onChange(() => updateFurnitureMesh(key));
+                f.add(data, 'd', 10, 300).name('奥行(D)').onChange(() => updateFurnitureMesh(key));
+                f.add(data, 'x', -200, 200).name('位置 X').listen().onChange(() => updateFurnitureMesh(key));
+                f.add(data, 'z', -200, 200).name('位置 Z').listen().onChange(() => updateFurnitureMesh(key));
             }
-        }
+            folderFurniture.open();
 
-        function showToast(msg) {
-            const t = document.getElementById('message-toast');
-            t.querySelector('div').innerText = msg;
-            t.style.opacity = '1';
-            t.classList.remove('translate-y-1/2'); // ちょっと浮かせるアニメ
-            setTimeout(() => {
-                t.style.opacity = '0';
-            }, 1000);
-        }
-
-        function showResult() {
-            playSound('win');
-            const scores = countScores();
-            
-            // チームごとのスコア計算
-            const humanScore = scores[0] + scores[2]; // P1 + P3
-            const cpuScore = scores[1] + scores[3];   // P2 + P4
-
-            const nameEl = document.getElementById('winner-name');
-            const scoreEl = document.getElementById('winner-score');
-            const glowEl = document.getElementById('winner-glow');
-
-            let winnerText = "";
-            let winnerColor = "";
-
-            if (humanScore > cpuScore) {
-                winnerText = "YOU WIN!";
-                winnerColor = "#FF0055"; // P1 Color base
-            } else if (cpuScore > humanScore) {
-                winnerText = "CPU WINS";
-                winnerColor = "#00E5FF"; // P2 Color base
-            } else {
-                winnerText = "DRAW";
-                winnerColor = "#FFFFFF";
-            }
-
-            nameEl.innerText = winnerText;
-            nameEl.style.color = winnerColor;
-            glowEl.style.backgroundColor = winnerColor;
-            
-            scoreEl.innerHTML = `
-                <div class="flex justify-center gap-4 text-xl mt-2">
-                    <div class="text-pink-400">YOU: ${humanScore}</div>
-                    <div class="text-cyan-400">CPU: ${cpuScore}</div>
-                </div>
-            `;
-            
-            resultModal.classList.remove('hidden');
-        }
-
-        function resetGame() {
-            initGame();
-        }
-
-        // --- 背景用キャンバス（パーティクル） ---
-        const canvas = document.getElementById('bgCanvas');
-        const ctx = canvas.getContext('2d');
-        let particles = [];
-
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
-
-        class Particle {
-            constructor() {
-                this.x = Math.random() * canvas.width;
-                this.y = Math.random() * canvas.height;
-                this.size = Math.random() * 2;
-                this.speedX = (Math.random() - 0.5) * 0.5;
-                this.speedY = (Math.random() - 0.5) * 0.5;
-                this.color = `rgba(${Math.random()*255}, ${Math.random()*255}, 255, ${Math.random() * 0.5})`;
-            }
-            update() {
-                this.x += this.speedX;
-                this.y += this.speedY;
-                if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
-                if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
-            }
-            draw() {
-                ctx.fillStyle = this.color;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-
-        function initParticles() {
-            for(let i=0; i<50; i++) particles.push(new Particle());
-        }
-
-        function animateParticles() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            particles.forEach(p => {
-                p.update();
-                p.draw();
+            const folderPeople = gui.addFolder('配置 (人物)');
+            peopleData.forEach((data, index) => {
+                const f = folderPeople.addFolder(data.label);
+                f.add(data, 'x', -200, 200).name('位置 X').listen().onChange(() => updatePersonMesh(index));
+                f.add(data, 'z', -200, 200).name('位置 Z').listen().onChange(() => updatePersonMesh(index));
             });
-            requestAnimationFrame(animateParticles);
         }
 
-        initParticles();
-        animateParticles();
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
 
-        // ゲーム開始
-        initGame();
-
+        init();
     </script>
 </body>
 </html>
