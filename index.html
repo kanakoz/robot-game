@@ -2,511 +2,468 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>テント飲食出店レイアウト3D（初期値反映版）</title>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #f0f0f0; font-family: sans-serif; touch-action: none; }
-        #info {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            pointer-events: none;
-            z-index: 100;
-            max-width: 80%;
-        }
-        h1 { font-size: 16px; margin: 0 0 5px 0; }
-        p { font-size: 12px; margin: 0; }
-        #liff-status {
-            font-size: 10px;
-            color: #666;
-            margin-top: 5px;
-        }
-    </style>
-    <!-- Three.js CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
-    <!-- LIFF SDK -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CODE_MATRIX: CYBERPUNK OVERDRIVE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-pink: #ff00ff;
+            --neon-cyan: #00ffff;
+            --neon-green: #00ff00;
+            --dark-bg: #050505;
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            color: white;
+            font-family: 'Roboto Mono', monospace;
+            overflow: hidden;
+            margin: 0;
+            user-select: none;
+            touch-action: none;
+        }
+
+        .cyber-panel {
+            background: rgba(15, 15, 25, 0.9);
+            border: 2px solid var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+            position: relative;
+        }
+
+        .editable-value {
+            color: var(--neon-pink);
+            font-weight: bold;
+            text-decoration: underline;
+            cursor: pointer;
+            padding: 0 4px;
+            background: rgba(255, 0, 255, 0.1);
+            border-radius: 4px;
+            transition: all 0.2s;
+            display: inline-block;
+        }
+
+        #game-canvas {
+            image-rendering: pixelated;
+            background: #000;
+            border: 1px solid var(--neon-pink);
+            touch-action: none;
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .scanline {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .code-syntax-keyword { color: #c678dd; }
+        .code-syntax-const { color: #d19a66; }
+        .code-syntax-comment { color: #5c6370; font-style: italic; }
+        .code-syntax-string { color: #98c379; }
+
+        .glitch-text {
+            text-shadow: 2px 0 var(--neon-pink), -2px 0 var(--neon-cyan);
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #050505; }
+        ::-webkit-scrollbar-thumb { background: var(--neon-cyan); }
+    </style>
 </head>
-<body>
-    <div id="info">
-        <h1>出店レイアウト 3Dシミュレーター</h1>
-        <p>オブジェクトをドラッグして移動できます。</p>
-        <p>左ドラッグ: 回転/移動 | 右ドラッグ: 移動</p>
-        <div id="liff-status">LIFF初期化待機中...</div>
-    </div>
+<body class="flex flex-col h-screen p-2 md:p-4">
+
+    <!-- Header -->
+    <header class="flex justify-between items-center mb-2 md:mb-4">
+        <div>
+            <h1 class="text-xl md:text-3xl font-bold glitch-text">CODE_MATRIX <span class="text-[10px] md:text-xs font-normal text-cyan-400">LIFF_v2.2</span></h1>
+            <p id="user-status" class="text-[8px] md:text-[10px] text-gray-400 uppercase font-bold tracking-widest">
+                USER: <span id="user-name" class="text-cyan-400">GUEST</span> [OFFLINE_MODE]
+            </p>
+        </div>
+        <button id="reset-btn" class="px-2 py-1 md:px-4 md:py-2 border border-pink-500 text-pink-500 hover:bg-pink-500 hover:text-white transition-all text-[10px] md:text-xs font-bold uppercase">Reboot [再起動]</button>
+    </header>
+
+    <main class="flex flex-col md:flex-row flex-1 gap-2 md:gap-4 overflow-hidden">
+        
+        <!-- Code Editor Section -->
+        <section class="h-1/3 md:h-auto md:w-2/5 flex flex-col gap-2">
+            <div class="cyber-panel flex-1 p-3 md:p-6 overflow-y-auto">
+                <div class="flex justify-between items-center mb-2 border-b border-cyan-900 pb-1">
+                    <h2 class="text-cyan-400 text-[10px] md:text-sm flex items-center gap-2">
+                        <span class="w-2 h-2 bg-cyan-400 inline-block animate-pulse"></span>
+                        SYSTEM_CORE.js [プログラム編集]
+                    </h2>
+                </div>
+                
+                <div id="interactive-editor" class="text-[10px] md:text-sm leading-relaxed font-mono">
+                    <!-- JS Content -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Game Preview Section -->
+        <section class="flex-1 flex flex-col gap-2 overflow-hidden">
+            <div id="canvas-container" class="relative flex-1 cyber-panel overflow-hidden flex items-center justify-center p-1 bg-black">
+                <div class="scanline"></div>
+                <canvas id="game-canvas"></canvas>
+                
+                <!-- HUD -->
+                <div class="absolute top-2 left-2 pointer-events-none">
+                    <div class="text-[8px] md:text-[10px] text-cyan-400 mb-0 tracking-widest uppercase">Score [スコア]</div>
+                    <div id="score-display" class="text-lg md:text-2xl font-bold tracking-tighter text-white">000000</div>
+                </div>
+
+                <div id="touch-hint" class="absolute bottom-4 left-1/2 -translate-x-1/2 text-[8px] md:text-[10px] text-gray-500 pointer-events-none animate-pulse">
+                    DRAG TO MOVE & FIRE [ドラッグで移動・射撃]
+                </div>
+                
+                <!-- Game Over Overlay -->
+                <div id="overlay-msg" class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-80 z-20 hidden text-center px-4">
+                    <h3 class="text-2xl md:text-4xl font-bold text-pink-500 mb-2 glitch-text uppercase">System Failure</h3>
+                    <p id="final-score-text" class="text-white mb-6 text-sm font-bold"></p>
+                    <div class="flex flex-wrap gap-2 justify-center">
+                        <button id="retry-btn" class="px-6 py-2 bg-cyan-500 text-black font-bold hover:bg-white transition-all text-xs uppercase">Recover [復旧]</button>
+                        <button id="share-btn" class="px-6 py-2 bg-green-500 text-black font-bold hover:bg-white transition-all text-xs uppercase">Share on LINE [LINEで共有]</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="h-12 md:h-20 cyber-panel p-2">
+                <div id="message-log" class="text-[8px] md:text-[10px] text-green-400 opacity-80 h-full overflow-y-auto font-mono">
+                    > SYSTEM_INITIALIZED...<br>
+                    > LIFF_READY_CHECKING...
+                </div>
+            </div>
+        </section>
+
+    </main>
 
     <script>
-        // --- LIFF設定 ---
-        const LIFF_ID = ""; 
+        // --- LIFF ID (Replace this with your LIFF ID from LINE Developers Console) ---
+        const LIFF_ID = ""; // 例: "2000000000-XXXXXXXX"
 
-        // --- 設定変数 (cm単位) ---
-        const SPACE_WIDTH = 360;
-        const SPACE_DEPTH = 360;
-        const SPACE_HEIGHT = 250;
-        const PERSON_HEIGHT = 170;
-        const PERSON_RADIUS = 25;
-        const WORK_RADIUS = 60;
+        // --- CONSTANTS ---
+        const INTERNAL_WIDTH = 550;
+        const INTERNAL_HEIGHT = 550;
 
-        // --- 初期データ (Config: ユーザー提供データを反映) ---
-        const furnitureData = {
-          luggage: { label: "荷物", w: 49.23, d: 46.62, h: 100, x: -152.82, z: -155.14, color: 8421504 },
-          tableLeftBack: { label: "テーブルA", w: 60, d: 120, h: 70, x: -150, z: -120, color: 3355443 },
-          tableLeftFront: { label: "テーブルB", w: 60, d: 120, h: 70, x: -150.02, z: 2.80, color: 3355443 },
-          deskFront: { label: "長机A", w: 180, d: 60, h: 70, x: -8.44, z: 138.93, color: 9127187 },
-          deskRight: { label: "長机B", w: 60, d: 180, h: 70, x: 148.84, z: 57.96, color: 9127187 },
-          deskBack: { label: "長机C", w: 180, d: 60, h: 70, x: 45.58, z: -94.94, color: 9127187 }
+        // --- CONFIG ---
+        const options = {
+            speed: [2.5, 5.0, 9.0],
+            fireInterval: [500, 250, 100],
+            color: ['#00ffff', '#ff00ff', '#00ff00'],
+            spawnRate: [2000, 1000, 400],
+            bulletType: ['STANDARD', 'WIDE', 'LASER']
         };
 
-        const peopleData = [
-          { label: "人A", x: -16.45, z: 73.63 },
-          { label: "人B", x: -77.48, z: -30.36 },
-          { label: "人C", x: -72.88, z: -145.78 },
-          { label: "人D", x: 64.38, z: 7.53 },
-          { label: "人E", x: 87.39, z: -151.48 },
-          { label: "人F", x: -133.66, z: 139.11 }
-        ];
+        const config = { speed: 0, fireInterval: 0, color: 0, spawnRate: 0, bulletType: 0 };
 
-        let scene, camera, renderer, controls;
-        let walls = [];
-        let workZones = [];
+        // --- GAME STATE ---
+        let gameActive = true;
+        let score = 0;
+        let lastTime = 0;
+        let spawnTimer = 0;
+        let lastFireTime = 0;
         
-        // オブジェクト管理用
-        const furnitureGroups = {}; 
-        const peopleGroups = [];
-        let draggableObjects = []; 
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = INTERNAL_WIDTH;
+        canvas.height = INTERNAL_HEIGHT;
 
-        // ドラッグ用変数
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-        let selectedObject = null;
-        let dragPlane = new THREE.Plane();
-        let dragOffset = new THREE.Vector3();
-        let isDragging = false;
+        const player = { x: INTERNAL_WIDTH/2 - 15, y: INTERNAL_HEIGHT-80, w: 30, h: 30 };
+        let bullets = [];
+        let enemies = [];
+        let particles = [];
+        
+        const inputState = {
+            keys: {},
+            touch: { active: false, x: 0, y: 0 }
+        };
 
-        async function init() {
-            await initializeLiff();
+        // --- LIFF LOGIC ---
 
-            // 1. シーンセットアップ
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0xe0e0e0);
-
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
-            camera.position.set(0, 500, 500);
-            camera.lookAt(0, 0, 0);
-
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
-            document.body.appendChild(renderer.domElement);
-
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
-
-            // 2. 照明
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
-            dirLight.position.set(100, 300, 100);
-            dirLight.castShadow = true;
-            dirLight.shadow.mapSize.width = 2048;
-            dirLight.shadow.mapSize.height = 2048;
-            dirLight.shadow.camera.left = -200;
-            dirLight.shadow.camera.right = 200;
-            dirLight.shadow.camera.top = 200;
-            dirLight.shadow.camera.bottom = -200;
-            scene.add(dirLight);
-
-            // 3. 環境構築
-            createEnvironment();
-            
-            // 4. オブジェクト配置
-            placeFurnitureDynamic();
-            placePeopleDynamic();
-
-            // 5. GUI構築
-            setupGUI();
-
-            // 6. イベントリスナー
-            renderer.domElement.addEventListener('pointerdown', onPointerDown);
-            renderer.domElement.addEventListener('pointermove', onPointerMove);
-            renderer.domElement.addEventListener('pointerup', onPointerUp);
-            window.addEventListener('resize', onWindowResize);
-
-            animate();
-        }
-
-        async function initializeLiff() {
-            const statusDiv = document.getElementById('liff-status');
+        async function initLiff() {
             if (!LIFF_ID) {
-                statusDiv.innerText = "LIFF ID未設定 (Webモード)";
+                logMessage("WARNING: LIFF_ID is not set. Running in local mode.");
                 return;
             }
+
             try {
                 await liff.init({ liffId: LIFF_ID });
                 if (liff.isLoggedIn()) {
                     const profile = await liff.getProfile();
-                    statusDiv.innerText = `LIFF: ${profile.displayName}でログイン中`;
+                    document.getElementById('user-name').innerText = profile.displayName.toUpperCase();
+                    document.getElementById('user-status').innerHTML += ' <span class="text-green-400">[CONNECTED]</span>';
+                    logMessage(`HELLO, ${profile.displayName}. AUTH_SUCCESS.`);
                 } else {
-                    statusDiv.innerText = "LIFF: 未ログイン";
+                    logMessage("LIFF_NOT_LOGGED_IN. Running as Guest.");
                 }
-            } catch (error) {
-                console.error('LIFF Initialization failed', error);
-                statusDiv.innerText = "LIFF初期化エラー";
+            } catch (err) {
+                logMessage(`LIFF_INIT_ERROR: ${err.code} ${err.message}`);
             }
         }
 
-        function createEnvironment() {
-            const gridHelper = new THREE.GridHelper(SPACE_WIDTH + 200, 20);
-            scene.add(gridHelper);
-
-            const floorGeo = new THREE.PlaneGeometry(SPACE_WIDTH, SPACE_DEPTH);
-            const floorMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, side: THREE.DoubleSide });
-            const floor = new THREE.Mesh(floorGeo, floorMat);
-            floor.rotation.x = -Math.PI / 2;
-            floor.receiveShadow = true;
-            scene.add(floor);
-
-            const wallMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
-            
-            const wallLeft = new THREE.Mesh(new THREE.PlaneGeometry(SPACE_DEPTH, SPACE_HEIGHT), wallMat);
-            wallLeft.position.set(-SPACE_WIDTH / 2, SPACE_HEIGHT / 2, 0);
-            wallLeft.rotation.y = Math.PI / 2;
-            scene.add(wallLeft);
-            walls.push(wallLeft);
-
-            const wallRight = new THREE.Mesh(new THREE.PlaneGeometry(SPACE_DEPTH, SPACE_HEIGHT), wallMat);
-            wallRight.position.set(SPACE_WIDTH / 2, SPACE_HEIGHT / 2, 0);
-            wallRight.rotation.y = -Math.PI / 2;
-            scene.add(wallRight);
-            walls.push(wallRight);
-
-            const wallBack = new THREE.Mesh(new THREE.PlaneGeometry(SPACE_WIDTH, SPACE_HEIGHT), wallMat);
-            wallBack.position.set(0, SPACE_HEIGHT / 2, -SPACE_DEPTH / 2);
-            scene.add(wallBack);
-            walls.push(wallBack);
-
-            const boxGeo = new THREE.BoxGeometry(SPACE_WIDTH, SPACE_HEIGHT, SPACE_DEPTH);
-            const line = new THREE.LineSegments(new THREE.EdgesGeometry(boxGeo), new THREE.LineBasicMaterial({ color: 0x333333 }));
-            line.position.y = SPACE_HEIGHT / 2;
-            scene.add(line);
-        }
-
-        function createTextTexture(text, textColor, backgroundColor) {
-            const canvas = document.createElement('canvas');
-            const size = 512;
-            canvas.width = size;
-            canvas.height = size;
-            const ctx = canvas.getContext('2d');
-
-            if (backgroundColor) {
-                ctx.fillStyle = backgroundColor;
-                ctx.fillRect(0, 0, size, size);
-            } else {
-                ctx.fillStyle = 'rgba(0,0,0,0)';
-                ctx.clearRect(0, 0, size, size);
-            }
-
-            ctx.fillStyle = textColor;
-            ctx.font = 'bold 60px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(text, size / 2, size / 2);
-
-            const texture = new THREE.CanvasTexture(canvas);
-            texture.needsUpdate = true;
-            return texture;
-        }
-
-        function placeFurnitureDynamic() {
-            const baseGeo = new THREE.BoxGeometry(1, 1, 1);
-            for (const key in furnitureData) {
-                const data = furnitureData[key];
-                
-                const group = new THREE.Group();
-                
-                const mat = new THREE.MeshStandardMaterial({ color: data.color });
-                const mesh = new THREE.Mesh(baseGeo, mat);
-                mesh.castShadow = true;
-                mesh.receiveShadow = true;
-                mesh.userData = { isFurniturePart: true, parentId: key };
-                group.add(mesh);
-                
-                const textTexture = createTextTexture(data.label, '#000000', null);
-                const spriteMaterial = new THREE.SpriteMaterial({ map: textTexture });
-                const sprite = new THREE.Sprite(spriteMaterial);
-                sprite.scale.set(60, 60, 1);
-                group.add(sprite);
-
-                group.userData = { isFurniture: true, id: key, mesh: mesh, sprite: sprite };
-                
-                scene.add(group);
-                furnitureGroups[key] = group;
-                draggableObjects.push(mesh);
-
-                updateFurnitureMesh(key);
-            }
-        }
-
-        function updateFurnitureMesh(key) {
-            const data = furnitureData[key];
-            const group = furnitureGroups[key];
-            if (!group) return;
-
-            const mesh = group.userData.mesh;
-            const sprite = group.userData.sprite;
-
-            group.position.set(data.x, 0, data.z);
-
-            mesh.scale.set(data.w, data.h, data.d);
-            mesh.position.y = data.h / 2;
-
-            sprite.position.y = data.h + 30;
-        }
-
-        function placePeopleDynamic() {
-            peopleData.forEach((pData, index) => {
-                const group = new THREE.Group();
-                group.userData = { isPerson: true, index: index };
-
-                const body = new THREE.Mesh(
-                    new THREE.CylinderGeometry(PERSON_RADIUS, PERSON_RADIUS, PERSON_HEIGHT, 16),
-                    new THREE.MeshStandardMaterial({ color: 0x2196f3 })
-                );
-                body.position.y = PERSON_HEIGHT / 2;
-                body.castShadow = true;
-                group.add(body);
-
-                const head = new THREE.Mesh(
-                    new THREE.SphereGeometry(20, 16, 16),
-                    new THREE.MeshStandardMaterial({ color: 0xffccbc })
-                );
-                head.position.y = PERSON_HEIGHT;
-                group.add(head);
-
-                const textTexture = createTextTexture(pData.label, '#000000', null);
-                const spriteMaterial = new THREE.SpriteMaterial({ map: textTexture });
-                const sprite = new THREE.Sprite(spriteMaterial);
-                sprite.position.set(0, PERSON_HEIGHT + 30, 0);
-                sprite.scale.set(60, 60, 1); 
-                group.add(sprite);
-                
-                const zone = new THREE.Mesh(
-                    new THREE.CircleGeometry(WORK_RADIUS, 32),
-                    new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.15, side: THREE.DoubleSide })
-                );
-                zone.rotation.x = -Math.PI / 2;
-                zone.position.y = 1;
-                group.add(zone);
-                workZones.push(zone);
-
-                scene.add(group);
-                peopleGroups[index] = group;
-                
-                body.userData = { parentGroupIndex: index, isPersonPart: true };
-                head.userData = { parentGroupIndex: index, isPersonPart: true };
-                draggableObjects.push(body);
-                draggableObjects.push(head);
-
-                updatePersonMesh(index);
-            });
-        }
-
-        function updatePersonMesh(index) {
-            const data = peopleData[index];
-            const group = peopleGroups[index];
-            if (!group) return;
-            group.position.set(data.x, 0, data.z);
-        }
-
-        function onPointerDown(event) {
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(draggableObjects);
-
-            if (intersects.length > 0) {
-                controls.enabled = false;
-                isDragging = true;
-                const hit = intersects[0];
-                let object = hit.object;
-
-                if (object.userData.isPersonPart) {
-                    const index = object.userData.parentGroupIndex;
-                    selectedObject = peopleGroups[index];
-                } else if (object.userData.isFurniturePart) {
-                    const id = object.userData.parentId;
-                    selectedObject = furnitureGroups[id];
-                }
-
-                if (selectedObject) {
-                    const normal = new THREE.Vector3(0, 1, 0);
-                    dragPlane.setFromNormalAndCoplanarPoint(normal, hit.point);
-                    dragOffset.subVectors(selectedObject.position, hit.point);
-                }
-            }
-        }
-
-        function onPointerMove(event) {
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-            raycaster.setFromCamera(mouse, camera);
-
-            if (isDragging && selectedObject) {
-                const intersectPoint = new THREE.Vector3();
-                raycaster.ray.intersectPlane(dragPlane, intersectPoint);
-
-                if (intersectPoint) {
-                    const newPos = intersectPoint.add(dragOffset);
-                    selectedObject.position.x = newPos.x;
-                    selectedObject.position.z = newPos.z;
-
-                    if (selectedObject.userData.isPerson) {
-                        const index = selectedObject.userData.index;
-                        peopleData[index].x = newPos.x;
-                        peopleData[index].z = newPos.z;
-                    } else if (selectedObject.userData.isFurniture) {
-                        const id = selectedObject.userData.id;
-                        furnitureData[id].x = newPos.x;
-                        furnitureData[id].z = newPos.z;
-                    }
-                }
+        async function shareOnLine() {
+            if (!liff.isLoggedIn() || !liff.isInClient()) {
+                logMessage("SHARE_FAILED: Must be inside LINE app.");
                 return;
             }
 
-            const intersects = raycaster.intersectObjects(draggableObjects);
-            if (intersects.length > 0) {
-                document.body.style.cursor = 'pointer';
-            } else {
-                document.body.style.cursor = 'default';
+            try {
+                await liff.sendMessages([
+                    {
+                        type: 'text',
+                        text: `【CODE_MATRIX】スコア: ${score} を記録！\nシステムにパッチを当ててさらにハイスコアを目指せ！`
+                    }
+                ]);
+                logMessage("MESSAGE_SENT_SUCCESSFULLY.");
+            } catch (err) {
+                logMessage("SHARE_ABORTED_OR_ERROR.");
             }
         }
 
-        function onPointerUp(event) {
-            isDragging = false;
-            selectedObject = null;
-            controls.enabled = true;
+        // --- INITIALIZATION ---
+
+        async function init() {
+            // Input Listeners
+            window.addEventListener('keydown', e => inputState.keys[e.code] = true);
+            window.addEventListener('keyup', e => inputState.keys[e.code] = false);
+            canvas.addEventListener('touchstart', handleTouch, { passive: false });
+            canvas.addEventListener('touchmove', handleTouch, { passive: false });
+            canvas.addEventListener('touchend', () => { inputState.touch.active = false; }, { passive: false });
+
+            document.getElementById('reset-btn').onclick = resetGame;
+            document.getElementById('retry-btn').onclick = resetGame;
+            document.getElementById('share-btn').onclick = shareOnLine;
+            
+            updateEditor();
+            resetGame();
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // LIFF Init
+            await initLiff();
+
+            requestAnimationFrame(gameLoop);
         }
 
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+        function resizeCanvas() {
+            const container = document.getElementById('canvas-container');
+            const size = Math.min(container.clientWidth, container.clientHeight) - 20;
+            canvas.style.width = size + 'px';
+            canvas.style.height = size + 'px';
         }
 
-        // --- 設定出力モーダル ---
-        function showExportModal() {
-            const data = {
-                furniture: furnitureData,
-                people: peopleData
-            };
-            const json = JSON.stringify(data, null, 2);
+        function handleTouch(e) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const scaleX = INTERNAL_WIDTH / rect.width;
+            const scaleY = INTERNAL_HEIGHT / rect.height;
             
-            const overlay = document.createElement('div');
-            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:999;display:flex;justify-content:center;align-items:center;';
-            
-            const content = document.createElement('div');
-            content.style.cssText = 'background:white;padding:20px;border-radius:5px;width:80%;max-width:500px;display:flex;flex-direction:column;gap:10px;box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
-            
-            const label = document.createElement('p');
-            label.innerText = '以下のデータを全てコピーして、AIチャットに貼り付けてください。';
-            label.style.margin = '0 0 5px 0';
-            label.style.fontSize = '14px';
-            
-            const textarea = document.createElement('textarea');
-            textarea.value = json;
-            textarea.style.cssText = 'width:100%;height:200px;font-family:monospace;font-size:12px;border:1px solid #ccc;padding:5px;';
-            
-            // コピーボタン
-            const copyBtn = document.createElement('button');
-            copyBtn.innerText = 'クリップボードにコピー';
-            copyBtn.style.padding = '8px';
-            copyBtn.style.cursor = 'pointer';
-            copyBtn.onclick = () => {
-                textarea.select();
-                document.execCommand('copy');
-                copyBtn.innerText = 'コピーしました！';
-                setTimeout(() => copyBtn.innerText = 'クリップボードにコピー', 2000);
-            };
-
-            const closeBtn = document.createElement('button');
-            closeBtn.innerText = '閉じる';
-            closeBtn.style.padding = '8px';
-            closeBtn.style.cursor = 'pointer';
-            closeBtn.onclick = () => document.body.removeChild(overlay);
-            
-            content.appendChild(label);
-            content.appendChild(textarea);
-            content.appendChild(copyBtn);
-            content.appendChild(closeBtn);
-            overlay.appendChild(content);
-            document.body.appendChild(overlay);
+            inputState.touch.active = true;
+            inputState.touch.x = (touch.clientX - rect.left) * scaleX;
+            inputState.touch.y = (touch.clientY - rect.top) * scaleY;
         }
 
-        function setupGUI() {
-            const gui = new dat.GUI({ width: 300 });
+        function updateEditor() {
+            const editor = document.getElementById('interactive-editor');
+            const getVal = (key) => options[key][config[key]];
 
-            const folderGlobal = gui.addFolder('全体表示設定');
-            const params = {
-                wallOpacity: 0.5,
-                showWorkZone: true,
-                resetCamera: function() {
-                    camera.position.set(0, 500, 500);
-                    camera.lookAt(0, 0, 0);
-                    controls.reset();
-                },
-                exportSettings: function() {
-                    showExportModal();
+            editor.innerHTML = `
+                <div><span class="code-syntax-comment">// --- LIFF OPTIMIZED ENGINE ---</span></div>
+                <div><span class="code-syntax-keyword">const</span> <span class="code-syntax-const">SPEED</span> = <span class="editable-value" onclick="toggle('speed')">${getVal('speed').toFixed(1)}</span>;</div>
+                <div><span class="code-syntax-keyword">let</span> fireRate = <span class="editable-value" onclick="toggle('fireInterval')">${getVal('fireInterval')}</span>;</div>
+                <div><span class="code-syntax-keyword">let</span> type = <span class="code-syntax-string">"<span class="editable-value" onclick="toggle('bulletType')">${getVal('bulletType')}</span>"</span>;</div>
+                <div>player.color = <span class="code-syntax-string">"<span class="editable-value" onclick="toggle('color')">${getVal('color')}</span>"</span>;</div>
+                <br>
+                <div><span class="code-syntax-keyword">function</span> <span class="code-syntax-const">onTick</span>() {</div>
+                <div class="ml-4">spawn_ms = <span class="editable-value" onclick="toggle('spawnRate')">${getVal('spawnRate')}</span>;</div>
+                <div>}</div>
+            `;
+        }
+
+        function toggle(key) {
+            config[key] = (config[key] + 1) % options[key].length;
+            updateEditor();
+            logMessage(`UPDATE: ${key.toUpperCase()} -> ${options[key][config[key]]}`);
+        }
+
+        function logMessage(msg) {
+            const log = document.getElementById('message-log');
+            const time = new Date().toLocaleTimeString().split(' ')[0];
+            log.innerHTML = `> [${time}] ${msg}<br>${log.innerHTML}`;
+            log.scrollTop = 0;
+        }
+
+        function resetGame() {
+            score = 0;
+            enemies = [];
+            bullets = [];
+            particles = [];
+            player.x = INTERNAL_WIDTH / 2 - 15;
+            player.y = INTERNAL_HEIGHT - 80;
+            gameActive = true;
+            document.getElementById('overlay-msg').classList.add('hidden');
+            document.getElementById('score-display').innerText = "000000";
+            logMessage("RELOAD_CORE_SUCCESS [システム正常]");
+        }
+
+        // --- GAME ENGINE ---
+
+        function createExplosion(x, y, color) {
+            for(let i=0; i<6; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 12,
+                    vy: (Math.random() - 0.5) * 12,
+                    life: 1.0,
+                    color: color
+                });
+            }
+        }
+
+        function update(dt) {
+            if (!gameActive) return;
+
+            const speed = options.speed[config.speed];
+            
+            // Movement Logic
+            if (inputState.keys['ArrowLeft'] || inputState.keys['KeyA']) player.x -= speed;
+            if (inputState.keys['ArrowRight'] || inputState.keys['KeyD']) player.x += speed;
+            if (inputState.keys['ArrowUp'] || inputState.keys['KeyW']) player.y -= speed;
+            if (inputState.keys['ArrowDown'] || inputState.keys['KeyS']) player.y += speed;
+
+            if (inputState.touch.active) {
+                const dx = inputState.touch.x - (player.x + player.w/2);
+                const dy = (inputState.touch.y - 40) - (player.y + player.h/2);
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist > 5) {
+                    player.x += (dx / dist) * speed;
+                    player.y += (dy / dist) * speed;
                 }
-            };
-            folderGlobal.add(params, 'wallOpacity', 0, 1).name('壁透明度').onChange(v => {
-                walls.forEach(w => w.material.opacity = v);
-            });
-            folderGlobal.add(params, 'showWorkZone').name('作業半径表示').onChange(v => {
-                workZones.forEach(z => z.visible = v);
-            });
-            folderGlobal.add(params, 'resetCamera').name('カメラリセット');
-            
-            // 重要: データ出力ボタン
-            folderGlobal.add(params, 'exportSettings').name('★現在の配置を出力');
-            
-            folderGlobal.open();
-
-            const folderFurniture = gui.addFolder('配置・サイズ (什器)');
-            for (const key in furnitureData) {
-                const data = furnitureData[key];
-                const f = folderFurniture.addFolder(data.label);
-                
-                f.add(data, 'w', 10, 300).name('幅(W)').onChange(() => updateFurnitureMesh(key));
-                f.add(data, 'd', 10, 300).name('奥行(D)').onChange(() => updateFurnitureMesh(key));
-                f.add(data, 'x', -200, 200).name('位置 X').listen().onChange(() => updateFurnitureMesh(key));
-                f.add(data, 'z', -200, 200).name('位置 Z').listen().onChange(() => updateFurnitureMesh(key));
             }
-            folderFurniture.open();
 
-            const folderPeople = gui.addFolder('配置 (人物)');
-            peopleData.forEach((data, index) => {
-                const f = folderPeople.addFolder(data.label);
-                f.add(data, 'x', -200, 200).name('位置 X').listen().onChange(() => updatePersonMesh(index));
-                f.add(data, 'z', -200, 200).name('位置 Z').listen().onChange(() => updatePersonMesh(index));
+            player.x = Math.max(0, Math.min(INTERNAL_WIDTH - player.w, player.x));
+            player.y = Math.max(0, Math.min(INTERNAL_HEIGHT - player.h, player.y));
+
+            // Firing Logic
+            const now = Date.now();
+            const fireRate = options.fireInterval[config.fireInterval];
+            if ((inputState.touch.active || inputState.keys['Space'] || inputState.keys['Enter']) && now - lastFireTime > fireRate) {
+                const bType = options.bulletType[config.bulletType];
+                const cx = player.x + player.w/2;
+                if (bType === 'STANDARD') {
+                    bullets.push({ x: cx - 2, y: player.y, w: 4, h: 12, vy: -12 });
+                } else if (bType === 'WIDE') {
+                    bullets.push({ x: cx - 2, y: player.y, w: 4, h: 12, vy: -10, vx: -2.5 });
+                    bullets.push({ x: cx - 2, y: player.y, w: 4, h: 12, vy: -12, vx: 0 });
+                    bullets.push({ x: cx - 2, y: player.y, w: 4, h: 12, vy: -10, vx: 2.5 });
+                } else if (bType === 'LASER') {
+                    bullets.push({ x: cx - 1, y: player.y, w: 2, h: 50, vy: -25 });
+                }
+                lastFireTime = now;
+            }
+
+            bullets.forEach((b, i) => {
+                b.y += b.vy;
+                if(b.vx) b.x += b.vx;
+                if (b.y < -50) bullets.splice(i, 1);
+            });
+
+            spawnTimer += dt;
+            if (spawnTimer > options.spawnRate[config.spawnRate]) {
+                enemies.push({
+                    x: Math.random() * (INTERNAL_WIDTH - 30),
+                    y: -40, w: 30, h: 30,
+                    vy: 2 + Math.random() * 3.5
+                });
+                spawnTimer = 0;
+            }
+
+            enemies.forEach((e, i) => {
+                e.y += e.vy;
+                if (e.y > INTERNAL_HEIGHT) enemies.splice(i, 1);
+
+                if (e.x < player.x + player.w && e.x + e.w > player.x && e.y < player.y + player.h && e.y + e.h > player.y) {
+                    gameActive = false;
+                    document.getElementById('final-score-text').innerText = `TOTAL_SCORE: ${score.toString().padStart(6, '0')}`;
+                    document.getElementById('overlay-msg').classList.remove('hidden');
+                    createExplosion(player.x + player.w/2, player.y + player.h/2, '#fff');
+                    logMessage("CORE_ERR: SYSTEM_OVERHEAT [コア融解]");
+                }
+
+                bullets.forEach((b, bi) => {
+                    if (b.x < e.x + e.w && b.x + b.w > e.x && b.y < e.y + e.h && b.y + b.h > e.y) {
+                        createExplosion(e.x + e.w/2, e.y + e.h/2, options.color[config.color]);
+                        enemies.splice(i, 1);
+                        bullets.splice(bi, 1);
+                        score += 100;
+                        document.getElementById('score-display').innerText = score.toString().padStart(6, '0');
+                    }
+                });
+            });
+
+            particles.forEach((p, i) => {
+                p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+                if (p.life <= 0) particles.splice(i, 1);
             });
         }
 
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
-            renderer.render(scene, camera);
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT);
+
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.07)';
+            for(let i=0; i<INTERNAL_WIDTH; i+=50) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, INTERNAL_HEIGHT); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(INTERNAL_WIDTH, i); ctx.stroke();
+            }
+
+            if (gameActive) {
+                const col = options.color[config.color];
+                ctx.shadowBlur = 15; ctx.shadowColor = col;
+                ctx.fillStyle = col;
+                ctx.fillRect(player.x, player.y, player.w, player.h);
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(player.x+8, player.y+8, player.w-16, player.h-16);
+            }
+
+            ctx.shadowBlur = 10; ctx.shadowColor = '#0ff';
+            ctx.fillStyle = '#0ff';
+            bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
+
+            ctx.shadowBlur = 10; ctx.shadowColor = '#f0f';
+            ctx.fillStyle = '#f0f';
+            enemies.forEach(e => {
+                ctx.fillRect(e.x, e.y, e.w, e.h);
+                ctx.strokeStyle = '#fff';
+                ctx.strokeRect(e.x+5, e.y+5, e.w-10, e.h-10);
+            });
+
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, 4, 4);
+            });
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = 0;
         }
 
-        init();
+        function gameLoop(time) {
+            const dt = time - lastTime;
+            lastTime = time;
+            update(dt || 0);
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = init;
     </script>
 </body>
 </html>
