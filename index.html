@@ -145,8 +145,8 @@
     </main>
 
     <script>
-        // --- LIFF ID (Replace this with your LIFF ID from LINE Developers Console) ---
-        const LIFF_ID = ""; // 例: "2000000000-XXXXXXXX"
+        // --- LIFF ID ---
+        const LIFF_ID = ""; 
 
         // --- CONSTANTS ---
         const INTERNAL_WIDTH = 550;
@@ -189,7 +189,7 @@
 
         async function initLiff() {
             if (!LIFF_ID) {
-                logMessage("WARNING: LIFF_ID is not set. Running in local mode.");
+                logMessage("WARNING: LIFF_ID が設定されていません。ローカルモードで実行します。");
                 return;
             }
 
@@ -201,7 +201,7 @@
                     document.getElementById('user-status').innerHTML += ' <span class="text-green-400">[CONNECTED]</span>';
                     logMessage(`HELLO, ${profile.displayName}. AUTH_SUCCESS.`);
                 } else {
-                    logMessage("LIFF_NOT_LOGGED_IN. Running as Guest.");
+                    logMessage("LOGIN_REQUIRED: 未ログイン状態です。");
                 }
             } catch (err) {
                 logMessage(`LIFF_INIT_ERROR: ${err.code} ${err.message}`);
@@ -209,28 +209,39 @@
         }
 
         async function shareOnLine() {
-            if (!liff.isLoggedIn() || !liff.isInClient()) {
-                logMessage("SHARE_FAILED: Must be inside LINE app.");
+            if (!liff.isLoggedIn()) {
+                logMessage("LOGIN_REQUIRED: 共有の前にログインが必要です。");
+                liff.login();
                 return;
             }
 
-            try {
-                await liff.sendMessages([
-                    {
-                        type: 'text',
-                        text: `【CODE_MATRIX】スコア: ${score} を記録！\nシステムにパッチを当ててさらにハイスコアを目指せ！`
+            if (liff.isApiAvailable('shareTargetPicker')) {
+                try {
+                    const result = await liff.shareTargetPicker([
+                        {
+                            type: 'text',
+                            text: `【CODE_MATRIX】\nSCORE: ${score.toString().padStart(6, '0')} を記録！\n\nプログラム変数を書き換え、さらなる高みを目指せ！\n#CodeMatrix #LIFF #GameProgramming`
+                        }
+                    ]);
+                    if (result) {
+                        logMessage("SHARE_SUCCESS [メッセージを送信しました]");
+                    } else {
+                        logMessage("SHARE_CANCELED [共有がキャンセルされました]");
                     }
-                ]);
-                logMessage("MESSAGE_SENT_SUCCESSFULLY.");
-            } catch (err) {
-                logMessage("SHARE_ABORTED_OR_ERROR.");
+                } catch (err) {
+                    logMessage(`SHARE_ERR: ${err.message}`);
+                }
+            } else {
+                logMessage("SHARE_UNAVAILABLE: この環境ではシェア機能が利用できません。");
+                if (!liff.isInClient()) {
+                    logMessage("HINT: LINEアプリ内のブラウザで開いてください。");
+                }
             }
         }
 
         // --- INITIALIZATION ---
 
         async function init() {
-            // Input Listeners
             window.addEventListener('keydown', e => inputState.keys[e.code] = true);
             window.addEventListener('keyup', e => inputState.keys[e.code] = false);
             canvas.addEventListener('touchstart', handleTouch, { passive: false });
@@ -246,7 +257,6 @@
             resizeCanvas();
             window.addEventListener('resize', resizeCanvas);
 
-            // LIFF Init
             await initLiff();
 
             requestAnimationFrame(gameLoop);
@@ -276,14 +286,23 @@
             const getVal = (key) => options[key][config[key]];
 
             editor.innerHTML = `
-                <div><span class="code-syntax-comment">// --- LIFF OPTIMIZED ENGINE ---</span></div>
+                <div><span class="code-syntax-comment">// --- リアルタイム・コード編集エンジン ---</span></div>
+                <br>
+                <div><span class="code-syntax-comment">// 自機の移動速度（高いほど高速）</span></div>
                 <div><span class="code-syntax-keyword">const</span> <span class="code-syntax-const">SPEED</span> = <span class="editable-value" onclick="toggle('speed')">${getVal('speed').toFixed(1)}</span>;</div>
+                <br>
+                <div><span class="code-syntax-comment">// 弾を撃つ間隔（ミリ秒 / 低いほど連射）</span></div>
                 <div><span class="code-syntax-keyword">let</span> fireRate = <span class="editable-value" onclick="toggle('fireInterval')">${getVal('fireInterval')}</span>;</div>
+                <br>
+                <div><span class="code-syntax-comment">// 弾丸の攻撃パターン</span></div>
                 <div><span class="code-syntax-keyword">let</span> type = <span class="code-syntax-string">"<span class="editable-value" onclick="toggle('bulletType')">${getVal('bulletType')}</span>"</span>;</div>
+                <br>
+                <div><span class="code-syntax-comment">// プレイヤーのネオンカラー設定</span></div>
                 <div>player.color = <span class="code-syntax-string">"<span class="editable-value" onclick="toggle('color')">${getVal('color')}</span>"</span>;</div>
                 <br>
-                <div><span class="code-syntax-keyword">function</span> <span class="code-syntax-const">onTick</span>() {</div>
-                <div class="ml-4">spawn_ms = <span class="editable-value" onclick="toggle('spawnRate')">${getVal('spawnRate')}</span>;</div>
+                <div><span class="code-syntax-keyword">function</span> <span class="code-syntax-const">enemySpawnSystem</span>() {</div>
+                <div class="ml-4"><span class="code-syntax-comment">// 敵が出現する間隔（低いほど高密度）</span></div>
+                <div class="ml-4">ms = <span class="editable-value" onclick="toggle('spawnRate')">${getVal('spawnRate')}</span>;</div>
                 <div>}</div>
             `;
         }
@@ -333,7 +352,6 @@
 
             const speed = options.speed[config.speed];
             
-            // Movement Logic
             if (inputState.keys['ArrowLeft'] || inputState.keys['KeyA']) player.x -= speed;
             if (inputState.keys['ArrowRight'] || inputState.keys['KeyD']) player.x += speed;
             if (inputState.keys['ArrowUp'] || inputState.keys['KeyW']) player.y -= speed;
@@ -352,7 +370,6 @@
             player.x = Math.max(0, Math.min(INTERNAL_WIDTH - player.w, player.x));
             player.y = Math.max(0, Math.min(INTERNAL_HEIGHT - player.h, player.y));
 
-            // Firing Logic
             const now = Date.now();
             const fireRate = options.fireInterval[config.fireInterval];
             if ((inputState.touch.active || inputState.keys['Space'] || inputState.keys['Enter']) && now - lastFireTime > fireRate) {
